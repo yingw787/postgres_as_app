@@ -61,3 +61,61 @@ post for a higher-level discussion on system design.
     [Authy](https://authy.com). Either should be fine. Set up your login. I
     combine Authy with [the Bitwarden password manager](https://bitwarden.com)
     for another layer of security.
+
+## Getting Started
+
+1.  If downloading from GitHub, `git` clone this repository:
+
+    ```bash
+    $ git clone https://github.com/yingw787/postgres_as_app
+    ```
+
+    If unzipping from releases, `unzip` this repository:
+
+    ```bash
+    $ unzip postgres_as_app.zip
+    ```
+
+## AWS Setup
+
+### IAM
+
+1.  Copy the file `${BASDIR}/infra-aws/iam.sample.json` to
+    `${BASEDIR}/infra-aws/iam.json`, containing the following:
+
+    ```json
+    [
+        {
+            "ParameterKey": "IAMPassword",
+            "ParameterValue": "$YOUR_PASSWORD_HERE"
+        }
+    ]
+    ```
+
+2.  Replace `$YOUR_PASSWORD_HERE` in `${BASEDIR}/infra-aws/iam.json with your
+    preferred IAM user password. Note that the password must follow IAM password
+    policies. In order to create a password that passes, run this command in
+    your terminal:
+
+    ```bash
+    aws secretsmanager get-random-password --include-space --password-length 20   --require-each-included-type --output text
+    ```
+
+3.  Run `make create-iam`:
+
+    ```bash
+    $ cd ${BASEDIR}/infra-aws; make create-iam
+    ```
+
+    You should get a response like:
+
+    ```bash
+    $ make create-iam
+    aws cloudformation create-stack --stack-name postgresasapp-iam --template-body file://iam.yaml --parameters file://iam.json --capabilities CAPABILITY_NAMED_IAM
+    {
+        "StackId": "$SAMPLE_ARN"
+    }
+    ```
+
+    This details the "Amazon Resource Number", an AWS-specific UUID describing
+    the created resource.
