@@ -1,6 +1,6 @@
 [
     {
-        "ParameterKey": "MyIAMUserPassword",
+        "ParameterKey": "IAMPassword",
         "ParameterValue": "$YOUR_PASSWORD_HERE"
     }
 ]
