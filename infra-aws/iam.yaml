@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Identity and access management layer for PostgresAsApp demo. IAM policy copied from this GitHub Gist: https://gist.github.com/mixja/15d2969efe806680c2a4b0059daaf697"
+
+Parameters:
+  IAMNamespace:
+    Type: String
+    Default: postgresasapp
+    Description: Namespace for users, groups, roles, and policies to disambiguate from other global IAM resources.
+
+  IAMUserPassword:
+    Type: String
+    Description: "Password for IAM user. Ensure that the password matches default AWS password policies: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html"
+
+Resources:
+  AdminGroup:
+    Type: "AWS::IAM::Group"
+    DependsOn:
+      - AdminRole
+    Properties:
+      GroupName: !Sub ${IAMNamespace}-administrators
+      Policies:
+        - PolicyName: AssumeAdminRole
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "sts:AssumeRole"
+                Resource: !GetAtt AdminRole.Arn
+
+  AdminRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "sts:AssumeRole"
+      Description: Temporarily elevates IAM user to admin-level privileges, except to change IAM permissions
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
+      MaxSessionDuration: 3600
+      RoleName: !Sub ${IAMNamespace}-admin
+
+  RequireMFAPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      Description: Force IAM user to apply MFA before enabling resource control.
+      ManagedPolicyName: ${IAMNamespace}-RequireMFAPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAllUsersToListAccounts
+            Effect: Allow
+            Action:
+              - "iam:ListAccountAliases"
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:ListUsers"
+              - "iam:GetAccountSummary"
+            Resource:
+              - "*"
+          - Sid: AllowIndividualUserToSeeTheirAccountInformationAndCreateAccessKey
+            Effect: Allow
+            Action:
+              - "iam:ChangePassword"
+              - "iam:CreateLoginProfile"
+              - "iam:DeleteLoginProfile"
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:GetLoginProfile"
+              - "iam:UpdateLoginProfile"
+              - "iam:CreateAccessKey"
+              - "iam:ListAccessKeys"
+            Resource:
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+          - Sid: AllowIndividualUserToListTheirMFA
+            Effect: Allow
+            Action:
+              - "iam:ListVirtualMFADevices"
+              - "iam:ListMFADevices"
+            Resource:
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:mfa/*"
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+          - Sid: AllowIndividualUserToManageTheirMFA
+            Effect: Allow
+            Action:
+              - "iam:CreateVirtualMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ResyncMFADevice"
+            Resource:
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:mfa/${!aws:username}"
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+          - Sid: DenyEverythingExceptForBelowUnlessMFAd
+            Effect: Deny
+            NotAction:
+              - "iam:ListVirtualMFADevices"
+              - "iam:ListMFADevices"
+              - "iam:ListUsers"
+              - "iam:ListAccountAliases"
+              - "iam:CreateVirtualMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ResyncMFADevice"
+              - "iam:ChangePassword"
+              - "iam:CreateLoginProfile"
+              - "iam:DeleteLoginProfile"
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:GetAccountSummary"
+              - "iam:GetLoginProfile"
+              - "iam:UpdateLoginProfile"
+            Resource: "*"
+            Condition:
+              "Null":
+                "aws:MultiFactorAuthAge": "true"
+          - Sid: DenyIamAccessToOtherAccountsUnlessMFAd
+            Effect: Deny
+            Action:
+              - "iam:CreateVirtualMFADevice"
+              - "iam:DeactivateMFADevice"
+              - "iam:DeleteVirtualMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ResyncMFADevice"
+              - "iam:ChangePassword"
+              - "iam:CreateLoginProfile"
+              - "iam:DeleteLoginProfile"
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:GetLoginProfile"
+              - "iam:UpdateLoginProfile"
+              - "iam:CreateAccessKey"
+              - "iam:ListAccessKeys"
+            NotResource:
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:mfa/${!aws:username}"
+              - "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+            Condition:
+              "Null":
+                "aws:MultiFactorAuthAge": "true"
+
+  User:
+    Type: "AWS::IAM::User"
+    DependsOn:
+      - UserGroup
+      - AdminGroup
+    Properties:
+      Groups:
+        - Ref: UserGroup
+        - Ref: AdminGroup
+      LoginProfile:
+        Password: !Ref IAMUserPassword
+        PasswordResetRequired: false
+      UserName: !Sub ${IAMNamespace}-user
+
+  UserGroup:
+    Type: "AWS::IAM::Group"
+    DependsOn:
+      - RequireMFAPolicy
+    Properties:
+      GroupName: !Sub ${IAMNamespace}-users
+      ManagedPolicyArns:
+        - Ref: RequireMFAPolicy
