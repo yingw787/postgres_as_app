@@ -119,3 +119,77 @@ post for a higher-level discussion on system design.
 
     This details the "Amazon Resource Number", an AWS-specific UUID describing
     the created resource.
+
+    After AWS CloudFormation finishes creating the stack with response
+    `CREATE_COMPLETE` (which you can see either by logging into the AWS
+    CloudFormation console, or by running `make wait-iam`), you can begin
+    setting up local references for this user.
+
+4.  In the AWS console, take your root account ID, your newly created IAM user
+    ID `postgresasapp-user`, and your IAM user password `IAMPassword`, to log
+    into a session of AWS console.
+
+5.  Open `Services | IAM`, and in `Users | postgresasapp-user | Security
+    Credentials`, add an MFA device in `Assigned MFA Device`. Register your MFA
+    device, then log out and log back in using the same root account ID, IAM
+    user ID, and IAM user password. This time, the console should prompt you for
+    an MFA code. Enter the code from your authenticator app and login.
+
+6.  On the right-hand side of the top navbar, click on "Switch Role", just above
+    "Sign Out. Switch role to role `postgresasapp-admin`, using your root AWS
+    account ID and role `postgresasapp-admin`.
+
+    You should now have access to all AWS resources after switching to this
+    role, and confirmed signing into your IAM user with an MFA device grants you
+    access to all AWS resources.
+
+7.  In order to run further AWS commands in the terminal, you need a set of AWS
+    credentials saved onto your local computer. In the AWS console, in window
+    `Services | IAM`, and in window `Users | postgresasapp-user | Security
+    Credentials`, click on "Create Access Key". This should create a key/secret
+    pair for you to download.
+
+8.  On your local machine, configure your new user by running `aws configure
+    --profile postgresasapp-user`. This should properly configure
+    `~/.aws/credentials`.
+
+9.  At this point, you need to configure `~/.aws/config` in order to enable MFA
+    login within the terminal. Take the section of `~/.aws/config` that matches
+    your IAM user:
+
+    ```text
+    [profile postgresasapp-user]
+    region = us-east-1
+    output = json
+    ```
+
+    And replace it with this new section to properly configure MFA via CLI:
+
+    ```text
+    [profile postgresasapp-user]
+    source_profile = postgresasapp-user
+    role_arn = arn:aws:iam::${RootAWSAccountID}:role/postgresasapp-admin
+    role_session_name=postgresasapp-user
+    mfa_serial = arn:aws:iam::${RootAWSAccountID}:mfa/postgresasapp-user
+    region = us-east-1
+    output = json
+    ```
+
+10. Finally, export `AWS_PROFILE` as `postgresasapp-user` to avoid piping
+    `--profile` into `aws` commands:
+
+    ```bash
+    export AWS_PROFILE=postgresasapp-user
+    ```
+
+    You should now be able to lift into admin role via MFA on the CLI.
+
+11. As a sanity check, run the following test command:
+
+    ```bash
+    aws s3 ls
+    ```
+
+    This command should prompt you for an MFA token. After successful MFA
+    validation, it should then give the appropriate response (no S3 buckets
+    created) without erroring out.
