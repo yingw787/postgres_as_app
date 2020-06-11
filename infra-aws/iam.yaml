@@ -8,7 +8,7 @@ Parameters:
     Default: postgresasapp
     Description: Namespace for users, groups, roles, and policies to disambiguate from other global IAM resources.
 
-  IAMUserPassword:
+  IAMPassword:
     Type: String
     Description: "Password for IAM user. Ensure that the password matches default AWS password policies: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html"
 
@@ -49,7 +49,7 @@ Resources:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
       Description: Force IAM user to apply MFA before enabling resource control.
-      ManagedPolicyName: ${IAMNamespace}-RequireMFAPolicy
+      ManagedPolicyName: !Sub ${IAMNamespace}-RequireMFAPolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -146,7 +146,7 @@ Resources:
         - Ref: UserGroup
         - Ref: AdminGroup
       LoginProfile:
-        Password: !Ref IAMUserPassword
+        Password: !Ref IAMPassword
         PasswordResetRequired: false
       UserName: !Sub ${IAMNamespace}-user
 
