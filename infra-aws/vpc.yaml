@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "VPC and subnet configuration. Taken from: https://www.infoq.com/articles/aws-vpc-cloudformation/"
+
+Resources:
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    DependsOn: VPC
+
+  InternetGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    DependsOn: InternetGateway
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicRoute1:
+    Type: "AWS::EC2::Route"
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Public
+      VpcId: !Ref VPC
+
+  PublicSubnetA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - "Fn::GetAZs": ""
+      CidrBlock: "10.1.10.0/24"
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public-a"
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetARouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  PublicSubnetB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - "Fn::GetAZs": ""
+      CidrBlock: "10.1.20.0/24"
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public-b"
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetBRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.1.0.0/16"
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-vpc"
+
+Outputs:
+  PublicSubnetAReference:
+    Description: Public subnet A reference
+    Value: !Ref PublicSubnetA
+    Export:
+      Name: !Sub "${AWS::StackName}-subnet-a"
+
+  PublicSubnetBReference:
+    Description: Public subnet B reference
+    Value: !Ref PublicSubnetB
+    Export:
+      Name: !Sub "${AWS::StackName}-subnet-b"
+
+  VPCReference:
+    Description: VPC reference
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-vpc"
+
+  VPCCIDRReference:
+    Description: VPC CIDR reference
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: !Sub "${AWS::StackName}-vpc-cidr"
