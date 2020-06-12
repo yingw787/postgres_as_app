@@ -2,6 +2,11 @@
 
 .PHONY: create-iam deploy-iam terminate-iam wait-iam create-vpc deploy-vpc terminate-vpc wait-vpc
 
+# Uncommon the line below if you're using the IAM user created here. Otherwise,
+# replace with your preferred AWS profile, inline '--profile $AWS_PROFILE' into
+# the relevant commands, or separately export within your shell.
+# export AWS_PROFILE=postgresasapp
+
 create-iam:
 	aws cloudformation create-stack --stack-name postgresasapp-iam --template-body file://iam.yaml --parameters file://iam.json --capabilities CAPABILITY_NAMED_IAM
 
