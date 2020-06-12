@@ -78,6 +78,16 @@ post for a higher-level discussion on system design.
 
 ## AWS Setup
 
+Assuming that all commands are run from `${BASEDIR}/infra-aws/`.
+
+**NOTE**: Deployment targets (`deploy-$SOMETHINg`) assume no changes in AWS
+CloudFormation input parameters. In order to override parameters, the command
+needs to be copied and pasted into the terminal, with the flag
+`--parameter-overrides` passed in. See [the documentation for `aws
+cloudformation
+deploy`](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/deploy/index.html)
+for more details.
+
 ### IAM
 
 1.  Copy the file `${BASDIR}/infra-aws/iam.sample.json` to
@@ -104,7 +114,7 @@ post for a higher-level discussion on system design.
 3.  Run `make create-iam`:
 
     ```bash
-    $ cd ${BASEDIR}/infra-aws; make create-iam
+    $ make create-iam
     ```
 
     You should get a response like:
@@ -201,21 +211,41 @@ post for a higher-level discussion on system design.
     make deploy-iam
     ```
 
-    **NOTE**: This target assumes no changes in AWS CloudFormation input
-    parameters. In order to override parameters, the command needs to be copied
-    and pasted into the terminal, with the flag `--parameter-overrides` passed
-    in. See [the documentation for `aws cloudformation
-    deploy`](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/deploy/index.html)
-    for more details.
-
-13. To tear down the stack, run:
+13. To tear down the IAM user, run:
 
     ```bash
     make terminate-iam
     ```
 
-14. To wait until the stack has been successfully created, run:
+14. To wait until the IAM user has been successfully created, run:
 
     ```bash
     make wait-iam
+    ```
+
+### VPC
+
+1.  To create the VPC, run:
+
+    ```bash
+    make create-vpc
+    ```
+
+2.  To deploy changes to the VPC, make your changes in `vpc.yaml`, then
+    run:
+
+    ```bash
+    make deploy-vpc
+    ```
+
+3.  To tear down the VPC, run:
+
+    ```bash
+    make terminate-vpc
+    ```
+
+4.  To wait until the VPC has been successfully created, run:
+
+    ```bash
+    make wait-vpc
     ```
