@@ -193,3 +193,29 @@ post for a higher-level discussion on system design.
     This command should prompt you for an MFA token. After successful MFA
     validation, it should then give the appropriate response (no S3 buckets
     created) without erroring out.
+
+12. To deploy changes to the IAM user, make your changes in `iam.yaml`, then
+    run:
+
+    ```bash
+    make deploy-iam
+    ```
+
+    **NOTE**: This target assumes no changes in AWS CloudFormation input
+    parameters. In order to override parameters, the command needs to be copied
+    and pasted into the terminal, with the flag `--parameter-overrides` passed
+    in. See [the documentation for `aws cloudformation
+    deploy`](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/deploy/index.html)
+    for more details.
+
+13. To tear down the stack, run:
+
+    ```bash
+    make terminate-iam
+    ```
+
+14. To wait until the stack has been successfully created, run:
+
+    ```bash
+    make wait-iam
+    ```
