@@ -1,0 +1,47 @@
+version: '3.7'
+
+services:
+  origindb:
+    container_name: origindb
+    image: postgres:12.3
+    environment:
+      - POSTGRES_USER=someuser
+      - POSTGRES_PASSWORD=somepassword
+      - POSTGRES_DB=somedb
+    volumes:
+      - origindb_data:/var/lib/postgresql/data/
+    networks:
+      postgresasapp:
+  customdb:
+    depends_on:
+      - origindb
+    container_name: customdb
+    build:
+      context: ./
+      dockerfile: customdb.Dockerfile
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydb
+    volumes:
+      - customdb_data:/var/lib/postgresql/data/
+    networks:
+      postgresasapp:
+  postgrest:
+    depends_on:
+      - customdb
+    container_name: postgrest
+    build:
+      context: ./
+      dockerfile: postgrest.Dockerfile
+    networks:
+      postgresasapp:
+    ports:
+      - 3000:3000
+
+volumes:
+  origindb_data:
+  customdb_data:
+
+networks:
+  postgresasapp:
