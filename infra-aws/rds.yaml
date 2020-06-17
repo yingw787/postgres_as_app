@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "RDS configuration. From: http://www.stojanveselinovski.com/blog/2016/01/12/simple-postgresql-rds-cloudformation-template/"
+
+Parameters:
+  DBAllocatedStorage:
+    Type: Number
+    Default: "5"
+    ConstraintDescription: Must be between 5 and 6144.
+    Description: The size of the database in GB.
+    MaxValue: "6144"
+    MinValue: "5"
+
+  DatabaseClass:
+    Type: String
+    Default: db.t2.micro
+    AllowedValues:
+      - db.t2.micro
+      - db.m1.small
+      - db.m1.large
+      - db.m1.xlarge
+      - db.m2.xlarge
+    ConstraintDescription: must select a valid database instance type.
+    Description: Database instance class
+
+  DatabasePassword:
+    Type: String
+    Description: The database admin account password
+    MinLength: "8"
+    NoEcho: "true"
+
+  DatabaseUsername:
+    Type: String
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+    Description: The database admin account username
+    MaxLength: "16"
+    MinLength: "1"
+    NoEcho: "true"
+
+  PostgresDBName:
+    Type: String
+    Default: pgdb
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+    Description: The database name
+    MaxLength: "8"
+    MinLength: "1"
+
+  PublicSubnetAReference:
+    Type: String
+    Default: postgresasapp-vpc-subnet-a
+    Description: "Reference to public subnet A as part of stack 'vpc.yaml'."
+
+  PublicSubnetBReference:
+    Type: String
+    Default: postgresasapp-vpc-subnet-b
+    Description: "Reference to public subnet B as part of stack 'vpc.yaml'."
+
+  VPCReference:
+    Type: String
+    Default: postgresasapp-vpc-vpc
+    Description: "Reference to VPC deployed as part of stack `vpc.yaml`."
+
+Resources:
+  DatabaseEC2SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Frontend Access
+      SecurityGroupIngress:
+        - CidrIp: "10.0.0.0/16"
+          FromPort: 5432
+          IpProtocol: tcp
+          ToPort: 5432
+      VpcId: !ImportValue
+        Ref: VPCReference
+
+  DatabaseParameterGroup:
+    Type: "AWS::RDS::DBParameterGroup"
+    Properties:
+      Description: Database Parameter Group + pg_stat_statements
+      Family: postgres11
+      Parameters:
+        shared_preload_libraries: pg_stat_statements
+
+  DatabaseSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: DB Private Subnet
+      SubnetIds:
+        - "Fn::ImportValue": !Ref PublicSubnetAReference
+        - "Fn::ImportValue": !Ref PublicSubnetBReference
+
+  PostgresDB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DatabaseClass
+      DBName: !Ref PostgresDBName
+      DBParameterGroupName: !Ref DatabaseParameterGroup
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: postgres
+      MasterUserPassword: !Ref DatabasePassword
+      MasterUsername: !Ref DatabaseUsername
+      VPCSecurityGroups: !GetAtt DatabaseEC2SecurityGroup.GroupId
+
+Outputs:
+  JDBCConnectionString:
+    Description: JDBC connection string for database
+    Value: !Join
+      - ""
+      - - "jdbc:postgresql://"
+        - "Fn::GetAtt":
+            - PostgresDB
+            - Endpoint.Address
+        - ":"
+        - "Fn::GetAtt":
+            - PostgresDB
+            - Endpoint.Port
+        - /
+        - Ref: PostgresDBName
+    Export:
+      Name: !Sub "${AWS::StackName}-rds-jdbc-conn"
