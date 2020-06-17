@@ -249,3 +249,50 @@ for more details.
     ```bash
     make wait-vpc
     ```
+
+### RDS
+
+1.  Copy the file `${BASDIR}/infra-aws/rds.sample.json` to
+    `${BASEDIR}/infra-aws/rds.json`, containing the following:
+
+    ```json
+    [
+        {
+            "ParameterKey": "DatabaseUsername",
+            "ParameterValue": "$YOUR_USERNAME_HERE"
+        },
+        {
+            "ParameterKey": "DatabasePassword",
+            "ParameterValue": "$YOUR_PASSWORD_HERE"
+        }
+    ]
+    ```
+
+2.  Replace `$YOUR_USERNAME_HERE` in `${BASEDIR}/infra-aws/rds.json` with your
+    preferred RDS master username, and `$YOUR_PASSWORD_HERE` in
+    `${BASEDIR}/infra-aws/rds.json with your preferred RDS master password.
+
+3.  Run `make create-rds`:
+
+    ```bash
+    $ make create-rds
+    ```
+
+4.  To deploy changes to the RDS instance, make your changes in `rds.yaml`, then
+    run:
+
+    ```bash
+    make deploy-rds
+    ```
+
+5.  To tear down the RDS instance, run:
+
+    ```bash
+    make terminate-rds
+    ```
+
+6.  To wait until the RDS instance has been successfully created, run:
+
+    ```bash
+    make wait-rds
+    ```
