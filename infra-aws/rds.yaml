@@ -111,6 +111,7 @@ Resources:
       Engine: postgres
       MasterUserPassword: !Ref DatabasePassword
       MasterUsername: !Ref DatabaseUsername
+      PubliclyAccessible: true
       VPCSecurityGroups:
         - !GetAtt DatabaseEC2SecurityGroup.GroupId
 
@@ -133,10 +134,10 @@ Outputs:
       Name: !Sub "${AWS::StackName}-rds-jdbc-conn"
 
   PostgresConnectionString:
-    Description: "'psql' connetion string for database"
+    Description: "'psql' connection string for database"
     Value: !Join
       - ""
-      - - "postgres://"
+      - - "postgresql://"
         - Ref: DatabaseUsername
         - ":"
         - Ref: DatabasePassword
