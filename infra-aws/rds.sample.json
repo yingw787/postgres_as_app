@@ -1,0 +1,10 @@
+[
+    {
+        "ParameterKey": "DatabaseUsername",
+        "ParameterValue": "$YOUR_USERNAME_HERE"
+    },
+    {
+        "ParameterKey": "DatabasePassword",
+        "ParameterValue": "$YOUR_PASSWORD_HERE"
+    }
+]
