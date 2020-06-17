@@ -9,7 +9,7 @@ down:
 	docker-compose down -v
 
 origindb-psql:
-	PGPASSWORD=somepsasword docker-compose exec origindb psql --username=someuser --db=somedb
+	PGPASSWORD=somepassword docker-compose exec origindb psql --username=someuser --db=somedb
 
 customdb-psql:
-	PGPASSWORD=mypsasword docker-compose exec customdb psql --username=myuser --db=mydb
+	PGPASSWORD=mypassword docker-compose exec customdb psql --username=myuser --db=mydb
