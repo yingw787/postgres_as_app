@@ -1,6 +1,6 @@
 #!/usr/bin/env make
 
-.PHONY: create-iam deploy-iam terminate-iam wait-iam create-vpc deploy-vpc terminate-vpc wait-vpc
+.PHONY: create-iam deploy-iam terminate-iam wait-iam create-vpc deploy-vpc terminate-vpc wait-vpc create-rds deploy-rds terminate-rds wait-rds
 
 # Uncommon the line below if you're using the IAM user created here. Otherwise,
 # replace with your preferred AWS profile, inline '--profile $AWS_PROFILE' into
@@ -30,3 +30,15 @@ terminate-vpc:
 
 wait-vpc:
 	aws cloudformation wait stack-create-complete --stack-name postgresasapp-vpc
+
+create-rds:
+	aws cloudformation create-stack --stack-name postgresasapp-rds --template-body file://rds.yaml --parameters file://rds.json --capabilities CAPABILITY_NAMED_IAM
+
+deploy-rds:
+	aws cloudformation deploy --stack-name postgresasapp-rds --template-file rds.yaml --capabilities CAPABILITY_NAMED_IAM
+
+terminate-rds:
+	aws cloudformation delete-stack --stack-name postgresasapp-rds
+
+wait-rds:
+	aws cloudformation wait stack-create-complete --stack-name postgresasapp-rds
