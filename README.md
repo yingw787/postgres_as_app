@@ -76,6 +76,73 @@ post for a higher-level discussion on system design.
     $ unzip postgres_as_app.zip
     ```
 
+## Local Setup
+
+1.  Stand up the `docker-compose` stack:
+
+    ```shell
+    make -f services/Makefile up
+    ```
+
+2.  In your origin database, create a table:
+
+    ```sql
+    somedb=# CREATE TABLE todos (col1 VARCHAR(256), col2 VARCHAR(256));
+    CREATE TABLE
+    somedb=# INSERT INTO todos (col1, col2) VALUES ('cat', 'dog');
+    INSERT 0 1
+    somedb=#
+    ```
+
+3.  In your custom database, create a `postgres_fdw` extension:
+
+    ```sql
+    mydb=# CREATE EXTENSION postgres_fdw;
+    CREATE EXTENSION
+    ```
+
+4.  In your custom database, create a server referencing your origin database:
+
+    ```sql
+    mydb=# CREATE SERVER origindb FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'origindb', port '5432', dbname 'somedb');
+    CREATE SERVER
+    ```
+
+5.  In your custom database, create a user mapping to map permissions between
+    your user on the custom database and a user on the origin database:
+
+    ```sql
+    mydb=# CREATE USER MAPPING FOR myuser SERVER origindb OPTIONS (user 'someuser', password 'somepassword');
+    CREATE USER MAPPING
+    ```
+
+6.  In your custom database, create a foreign table referencing the table in the
+    origin database:
+
+    ```sql
+    mydb=# CREATE FOREIGN TABLE todos (col1 VARCHAR(256), col2 VARCHAR(256)) SERVER origindb OPTIONS (schema_
+    name 'public', table_name 'todos');
+    CREATE FOREIGN TABLE
+    ```
+
+    You can see the table using `make -f services/Makefile customdb-psql` and
+    the `psql` command `\dE[S+]`:
+
+    ```sql
+    mydb=# \dE[S+]
+                            List of relations
+    Schema | Name  |     Type      | Owner  |  Size   | Description
+    --------+-------+---------------+--------+---------+-------------
+    public | todos | foreign table | myuser | 0 bytes |
+    (1 row)
+
+    mydb=#
+    ```
+
+7.  Open up `localhost:3000` in order to see the PostgREST server connectedto
+    your custom database up and running, and `localhost:3000/todos` in order to
+    see the foreign table reference.
+
 ## AWS Setup
 
 Assuming that all commands are run from `${BASEDIR}/infra-aws/`.
