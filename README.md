@@ -78,10 +78,12 @@ post for a higher-level discussion on system design.
 
 ## Local Setup
 
+Assuming that all commands are run from `${BASEDIR}/services/`.
+
 1.  Stand up the `docker-compose` stack:
 
     ```shell
-    make -f services/Makefile up
+    make up
     ```
 
 2.  In your origin database, create a table:
@@ -142,6 +144,12 @@ post for a higher-level discussion on system design.
 7.  Open up `localhost:3000` in order to see the PostgREST server connectedto
     your custom database up and running, and `localhost:3000/todos` in order to
     see the foreign table reference.
+
+8.  To tear down the `docker-compose` stack, run:
+
+    ```bash
+    make down
+    ```
 
 ## AWS Setup
 
