@@ -2,8 +2,11 @@
 
 .PHONY: create origindb-psql customdb-psql
 
-create:
+up:
 	docker-compose up -d --build
+
+down:
+	docker-compose down -v
 
 origindb-psql:
 	PGPASSWORD=somepsasword docker-compose exec origindb psql --username=someuser --db=somedb
