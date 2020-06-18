@@ -361,11 +361,11 @@ Resources:
     Properties:
       ClusterName: !Sub ${ECSClusterName}
 
-  ECSService:
+  DatabaseECSService:
     Type: "AWS::ECS::Service"
     DependsOn:
       - DatabaseNLBListener
-    Description: TODO ATTENTION
+    Description: ECS service definition for custom database.
     Properties:
       Cluster: !Ref ECSCluster
       DeploymentConfiguration:
@@ -378,6 +378,30 @@ Resources:
         - ContainerName: !Sub "${AWS::StackName}-customdb"
           ContainerPort: 5432
           TargetGroupArn: !Ref DatabaseNLBTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Ref: EC2SecurityGroup
+          Subnets:
+            - "Fn::ImportValue": !Ref PublicSubnetAReference
+      ServiceName: !Sub "${AWS::StackName}-service-customdb"
+      TaskDefinition: !Ref DatabaseECSTaskDefinition
+
+  ApplicationECSService:
+    Type: "AWS::ECS::Service"
+    DependsOn:
+      - ApplicationNLBListener
+    Description: ECS service definition for PostgREST webapp.
+    Properties:
+      Cluster: !Ref ECSCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: EC2
+      LoadBalancers:
         - ContainerName: !Sub "${AWS::StackName}-postgrest"
           ContainerPort: 3000
           TargetGroupArn: !Ref ApplicationNLBTargetGroup
@@ -388,12 +412,15 @@ Resources:
             - Ref: EC2SecurityGroup
           Subnets:
             - "Fn::ImportValue": !Ref PublicSubnetAReference
-      ServiceName: !Sub "${AWS::StackName}-service"
-      TaskDefinition: !Ref ECSTaskDefinition
+      ServiceName: !Sub "${AWS::StackName}-service-postgrest"
+      TaskDefinition: !Ref ApplicationECSTaskDefinition
 
-  ECSTaskDefinition:
+
+
+
+  DatabaseECSTaskDefinition:
     Type: "AWS::ECS::TaskDefinition"
-    Description: TODO ATTENTION
+    Description: ECS task definition for custom database.
     Properties:
       ContainerDefinitions:
         - Name: !Sub "${AWS::StackName}-customdb"
@@ -424,6 +451,34 @@ Resources:
           PortMappings:
             - ContainerPort: 5432
               Protocol: tcp
+      Cpu: "4096"
+      Family: !Sub "${AWS::StackName}-family-customdb"
+      Memory: "4096"
+      NetworkMode: awsvpc
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: "attribute:ecs.availability-zone==us-east-1a"
+      RequiresCompatibilities:
+        - EC2
+      Volumes:
+        - Name: postgresasapp-persist-ebs
+          DockerVolumeConfiguration:
+            Autoprovision: false
+            Driver: rexray/ebs
+            DriverOpts:
+              size: "5"
+              volumetype: gp2
+            Scope: shared
+
+
+
+
+
+
+  ApplicationECSTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Description: ECS task definition for PostgREST webapp.
+    Properties:
         - Name: !Sub "${AWS::StackName}-postgrest"
           Essential: true
           Image: !Sub "${ApplicationDockerHubImageName}:${ApplicationDockerHubImageTag}"
@@ -456,24 +511,17 @@ Resources:
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
-      Cpu: "512"
-      Family: !Sub "${AWS::StackName}-family"
-      Memory: "512"
+      Cpu: "4096"
+      Family: !Sub "${AWS::StackName}-family-postgrest"
+      Memory: "4096"
       NetworkMode: awsvpc
       PlacementConstraints:
         - Type: memberOf
           Expression: "attribute:ecs.availability-zone==us-east-1a"
       RequiresCompatibilities:
         - EC2
-      Volumes:
-        - Name: postgresasapp-persist-ebs
-          DockerVolumeConfiguration:
-            Autoprovision: false
-            Driver: rexray/ebs
-            DriverOpts:
-              size: "5"
-              volumetype: gp2
-            Scope: shared
+
+
 
 Outputs:
   PostgRESTURL:
