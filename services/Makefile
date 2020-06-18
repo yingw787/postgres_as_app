@@ -2,6 +2,9 @@
 
 .PHONY: create origindb-psql customdb-psql
 
+# Change to your Docker Hub username.
+export DOCKER_HUB_USERNAME=yingw7871
+
 up:
 	docker-compose up -d --build
 
@@ -15,9 +18,9 @@ customdb-psql:
 	PGPASSWORD=mypassword docker-compose exec customdb psql --username=myuser --db=mydb
 
 publish-customdb:
-	docker build -t yingw7871/postgresasapp-customdb:latest -f customdb.Dockerfile .
-	docker push yingw7871/postgresasapp-customdb:latest
+	docker build -t $(DOCKER_HUB_USERNAME)/postgresasapp-customdb:latest -f customdb.Dockerfile .
+	docker push $(DOCKER_HUB_USERNAME)/postgresasapp-customdb:latest
 
 publish-postgrest:
-	docker build -t yingw7871/postgresasapp-postgrest:latest -f postgrest.Dockerfile .
-	docker push yingw7871/postgresasapp-postgrest:latest
+	docker build -t $(DOCKER_HUB_USERNAME)/postgresasapp-postgrest:latest -f postgrest.Dockerfile .
+	docker push $(DOCKER_HUB_USERNAME)/postgresasapp-postgrest:latest
