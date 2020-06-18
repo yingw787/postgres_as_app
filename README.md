@@ -371,3 +371,30 @@ for more details.
     ```bash
     make wait-rds
     ```
+
+### Custom DB Persist
+
+1.  To create the custom database persist layer, run:
+
+    ```bash
+    $ make create-persist
+    ```
+
+2.  To deploy changes to the custom database persist layer, run:
+
+    ```bash
+    $ make deploy-persist
+    ```
+
+3.  To tear down the custom database persist layer, run:
+
+    ```bash
+    $ make terminate-persist
+    ```
+
+4.  To wait until the custom database persist layer has been successfully
+    created, run:
+
+    ```bash
+    $ make wait-persist
+    ```
