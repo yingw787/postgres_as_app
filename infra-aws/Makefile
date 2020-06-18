@@ -1,6 +1,6 @@
 #!/usr/bin/env make
 
-.PHONY: create-iam deploy-iam terminate-iam wait-iam create-vpc deploy-vpc terminate-vpc wait-vpc create-rds deploy-rds terminate-rds wait-rds rds-psql create-persist deploy-persist terminate-persist wait-persist create-compute deploy-compute terminate-compute wait-compute
+.PHONY: create-iam deploy-iam terminate-iam wait-iam create-vpc deploy-vpc terminate-vpc wait-vpc create-rds deploy-rds terminate-rds wait-rds rds-psql create-persist deploy-persist terminate-persist wait-persist create-compute deploy-compute terminate-compute wait-compute compute-psql
 
 # Uncommon the line below if you're using the IAM user created here. Otherwise,
 # replace with your preferred AWS profile, inline '--profile $AWS_PROFILE' into
@@ -70,3 +70,7 @@ terminate-compute:
 
 wait-compute:
 	aws cloudformation wait stack-create-complete --stack-name postgresasapp-compute
+
+compute-psql: ECS_PSQL_CONN_URI=$(shell aws cloudformation describe-stacks --stack-name postgresasapp-compute --query "Stacks[0].Outputs[?OutputKey=='PostgresConnectionString'].OutputValue" --output text)
+compute-psql:
+	@psql $(ECS_PSQL_CONN_URI)
