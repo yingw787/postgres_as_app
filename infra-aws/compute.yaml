@@ -98,7 +98,7 @@ Parameters:
     Description: "Reference to VPC deployed as part of stack `vpc.yaml`."
 
 Resources:
-  DatabaseEC2AutoScalingGroup:
+  EC2AutoScalingGroup:
     Type: "AWS::AutoScaling::AutoScalingGroup"
     CreationPolicy:
       ResourceSignal:
@@ -110,7 +110,7 @@ Resources:
             - "0"
             - "Fn::GetAZs": !Ref "AWS::Region"
       DesiredCapacity: !Ref EC2DesiredCapacity
-      LaunchConfigurationName: !Ref DatabaseEC2LaunchConfiguration
+      LaunchConfigurationName: !Ref EC2LaunchConfiguration
       MaxSize: !Ref EC2MaximumCapacity
       MinSize: !Ref EC2MinimumCapacity
       Tags:
@@ -132,7 +132,7 @@ Resources:
           - ScheduledActions
         WaitOnResourceSignals: "true"
 
-  DatabaseEC2AutoScalingRole:
+  EC2AutoScalingRole:
     Type: "AWS::IAM::Role"
     Description: Role to define EC2 autoscaling. NOTE that the EC2 autoscaling group may fail to stabilize if this role is mis-defined.
     Properties:
@@ -158,9 +158,9 @@ Resources:
                   - "ecs:UpdateService"
                 Resource: "*"
 
-  DatabaseEC2HostsRole:
+  EC2HostsRole:
     Type: "AWS::IAM::Role"
-    Description: "Role for EC2 hosts as passed by resource 'DatabaseEC2InstanceProfile'. This allows the ECS agent on the EC2 hosts to communicate with the ECS control plane, and download container images from AWS ECR to run with the host, in addition to updating EBS volume permissions."
+    Description: "Role for EC2 hosts as passed by resource 'EC2InstanceProfile'. This allows the ECS agent on the EC2 hosts to communicate with the ECS control plane, and download container images from AWS ECR to run with the host, in addition to updating EBS volume permissions."
     Properties:
       AssumeRolePolicyDocument:
         Statement:
@@ -218,14 +218,14 @@ Resources:
                   - "ec2:DescribeTags"
                 Resource: "*"
 
-  DatabaseEC2InstanceProfile:
+  EC2InstanceProfile:
     Type: "AWS::IAM::InstanceProfile"
     Properties:
       Path: /
       Roles:
-        - Ref: DatabaseEC2HostsRole
+        - Ref: EC2HostsRole
 
-  DatabaseEC2LaunchConfiguration:
+  EC2LaunchConfiguration:
     Type: "AWS::AutoScaling::LaunchConfiguration"
     Description: TODO UPDATE AFTER I FIGURE OUT HOW THE ENTIRE DATABASE WORKS
     Metadata:
@@ -243,7 +243,7 @@ Resources:
               mode: 256
               owner: root
             /etc/cfn/hooks.d/cfn-auto-reloader.conf:
-              content: !Sub "[cfn-auto-reloader-hook]\ntriggers=post.update\npath=Resources.DatabaseEC2LaunchConfiguration.Metadata.AWS::CloudFormation::Init\naction=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2LaunchConfiguration\n"
+              content: !Sub "[cfn-auto-reloader-hook]\ntriggers=post.update\npath=Resources.EC2LaunchConfiguration.Metadata.AWS::CloudFormation::Init\naction=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource EC2LaunchConfiguration\n"
           packages:
             yum:
               aws-cli: []
@@ -259,16 +259,16 @@ Resources:
                   - /etc/cfn/hooks.d/cfn-auto-reloader.conf
     Properties:
       AssociatePublicIpAddress: true
-      IamInstanceProfile: !Ref DatabaseEC2InstanceProfile
+      IamInstanceProfile: !Ref EC2InstanceProfile
       ImageId: !Ref EC2HostAMI
       InstanceType: !Ref EC2HostInstanceType
       KeyName: !Ref EC2KeyPair
       SecurityGroups:
-        - Ref: DatabaseEC2SecurityGroup
+        - Ref: EC2SecurityGroup
       UserData: !Base64
-        "Fn::Sub": "#!/bin/bash\nyum install -y aws-cfn-bootstrap\n/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2LaunchConfiguration\n/opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2AutoScalingGroup\n\nexec 2>>/var/log/ecs/ecs-agent-install.log\nset -x\nuntil curl -s http://localhost:51678/v1/metadata\ndo\n   sleep 1\ndone\ndocker plugin install rexray/ebs REXRAY_PREEMPT=true EBS_REGION=us-east-1 --grant-all-permissions\nstop ecs \nstart ecs\n"
+        "Fn::Sub": "#!/bin/bash\nyum install -y aws-cfn-bootstrap\n/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource EC2LaunchConfiguration\n/opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource EC2AutoScalingGroup\n\nexec 2>>/var/log/ecs/ecs-agent-install.log\nset -x\nuntil curl -s http://localhost:51678/v1/metadata\ndo\n   sleep 1\ndone\ndocker plugin install rexray/ebs REXRAY_PREEMPT=true EBS_REGION=us-east-1 --grant-all-permissions\nstop ecs \nstart ecs\n"
 
-  DatabaseEC2SecurityGroup:
+  EC2SecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: Enable SSH access via port 22
@@ -307,19 +307,19 @@ Resources:
           ContainerPort: 5432
           TargetGroupArn: !Ref DatabaseNLBTargetGroup
         - ContainerName: !Sub "${AWS::StackName}-postgrest"
-          ContainerPort: 5432
+          ContainerPort: 3000
           TargetGroupArn: !Ref ApplicationNLBTargetGroup
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
           SecurityGroups:
-            - Ref: DatabaseEC2SecurityGroup
+            - Ref: EC2SecurityGroup
           Subnets:
             - "Fn::ImportValue": !Ref PublicSubnetAReference
       ServiceName: !Sub "${AWS::StackName}-service"
-      TaskDefinition: !Ref DatabaseECSTaskDefinition
+      TaskDefinition: !Ref ECSTaskDefinition
 
-  DatabaseECSTaskDefinition:
+  ECSTaskDefinition:
     Type: "AWS::ECS::TaskDefinition"
     Description: TODO ATTENTION
     Properties:
