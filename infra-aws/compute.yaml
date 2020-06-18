@@ -1,0 +1,415 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Compute layer definition for the custom database and PostgREST application."
+
+Parameters:
+  DatabaseDockerHubImageTag:
+    Type: String
+    Default: latest
+    Description: Docker Hub image tag for the Postgres custom database Docker image.
+
+  DatabaseDockerHubImageName:
+    Type: String
+    Default: yingw7871/postgresasapp-customdb
+    Description: Docker Hub image name for the Postgres custom database Docker image.
+
+  EC2DesiredCapacity:
+    Type: Number
+    Default: "1"
+    Description: Average number of EC2 instances to launch in the EC2 cluster.
+
+  EC2HostAMI:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: /aws/service/ecs/optimized-ami/amazon-linux/recommended/image_id
+    Description: AMI base for EC2 autoscaling group.
+
+  EC2HostInstanceType:
+    Type: String
+    Default: t2.medium
+    Description: EC2 host instance type.
+
+  EC2KeyPair:
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the EC2 instances
+
+  EC2MaximumCapacity:
+    Type: Number
+    Default: "1"
+    Description: Maximum number of EC2 instances to launch in the EC2 cluster.
+
+  EC2MinimumCapacity:
+    Type: Number
+    Default: "1"
+    Description: Minimum number of EC2 instances to launch in the EC2 cluster.
+
+  ECSClusterName:
+    Type: String
+    Default: postgresasapp-ecs-cluster
+    Description: Name of the ECS cluster for the database.
+
+  EnvVarPostgresDatabase:
+    Type: String
+    Default: "mydb"
+    Description: "Environment variable 'POSTGRES_DB'."
+
+  EnvVarPostgresPassword:
+    Type: String
+    Default: "mypassword"
+    Description: "Environment variable 'POSTGRES_PASSWORD'."
+    NoEcho: true
+
+  EnvVarPostgresUser:
+    Type: String
+    Default: "myuser"
+    Description: "Environment variable 'POSTGRES_USER'."
+
+  PublicSubnetAReference:
+    Type: String
+    Default: postgresasapp-vpc-subnet-a
+    Description: "Reference to public subnet A as part of stack 'vpc.yaml'."
+
+  PublicSubnetBReference:
+    Type: String
+    Default: postgresasapp-vpc-subnet-b
+    Description: "Reference to public subnet B as part of stack 'vpc.yaml'."
+
+  SSHLocation:
+    Type: String
+    Default: "0.0.0.0/0"
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Description: " The IP address range that can be used to SSH to the EC2 instances"
+    MaxLength: "18"
+    MinLength: "9"
+
+  VPCReference:
+    Type: String
+    Default: postgresasapp-vpc-vpc
+    Description: "Reference to VPC deployed as part of stack `vpc.yaml`."
+
+Resources:
+  DatabaseEC2AutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+    Description: Ec2 autoscaling group backing the ECS service.
+    Properties:
+      AvailabilityZones:
+        - "Fn::Select":
+            - "0"
+            - "Fn::GetAZs": !Ref "AWS::Region"
+      DesiredCapacity: !Ref EC2DesiredCapacity
+      LaunchConfigurationName: !Ref DatabaseEC2LaunchConfiguration
+      MaxSize: !Ref EC2MaximumCapacity
+      MinSize: !Ref EC2MinimumCapacity
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: "true"
+          Value: !Sub "${AWS::StackName}"
+      VPCZoneIdentifier:
+        - "Fn::ImportValue": !Ref PublicSubnetAReference
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: "1"
+        MinInstancesInService: "1"
+        PauseTime: PT5M
+        SuspendProcesses:
+          - HealthCheck
+          - ReplaceUnhealthy
+          - AZRebalance
+          - AlarmNotification
+          - ScheduledActions
+        WaitOnResourceSignals: "true"
+
+  DatabaseEC2AutoScalingRole:
+    Type: "AWS::IAM::Role"
+    Description: Role to define EC2 autoscaling. NOTE that the EC2 autoscaling group may fail to stabilize if this role is mis-defined.
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - application-autoscaling.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-service-autoscaling"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "application-autoscaling:*"
+                  - "cloudwatch:DescribeAlarms"
+                  - "cloudwatch:PutMetricAlarm"
+                  - "ecs:DescribeServices"
+                  - "ecs:UpdateService"
+                Resource: "*"
+
+  DatabaseEC2HostsRole:
+    Type: "AWS::IAM::Role"
+    Description: "Role for EC2 hosts as passed by resource 'DatabaseEC2InstanceProfile'. This allows the ECS agent on the EC2 hosts to communicate with the ECS control plane, and download container images from AWS ECR to run with the host, in addition to updating EBS volume permissions."
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: ec2-hosts
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecs:CreateCluster"
+                  - "ecs:DeregisterContainerInstance"
+                  - "ecs:DiscoverPollEndpoint"
+                  - "ecs:Poll"
+                  - "ecs:RegisterContainerInstance"
+                  - "ecs:StartTelemetrySession"
+                  - "ecs:Submit*"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:BatchGetImage"
+                  - "ecr:GetDownloadUrlForLayer"
+                Resource: "*"
+        - PolicyName: ec2-volumes
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ec2:AttachVolume"
+                  - "ec2:CreateVolume"
+                  - "ec2:CreateSnapshot"
+                  - "ec2:CreateTags"
+                  - "ec2:DeleteVolume"
+                  - "ec2:DeleteSnapshot"
+                  - "ec2:DescribeAvailabilityZones"
+                  - "ec2:DescribeInstances"
+                  - "ec2:DescribeVolumes"
+                  - "ec2:DescribeVolumeAttribute"
+                  - "ec2:DescribeVolumeStatus"
+                  - "ec2:DescribeSnapshots"
+                  - "ec2:CopySnapshot"
+                  - "ec2:DescribeSnapshotAttribute"
+                  - "ec2:DetachVolume"
+                  - "ec2:ModifySnapshotAttribute"
+                  - "ec2:ModifyVolumeAttribute"
+                  - "ec2:DescribeTags"
+                Resource: "*"
+
+  DatabaseEC2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: /
+      Roles:
+        - Ref: DatabaseEC2HostsRole
+
+  DatabaseEC2LaunchConfiguration:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Description: TODO UPDATE AFTER I FIGURE OUT HOW THE ENTIRE DATABASE WORKS
+    Metadata:
+      "AWS::CloudFormation::Init":
+        config:
+          commands:
+            "01_add_instance_to_cluster":
+              command: !Sub echo ECS_CLUSTER=${ECSClusterName} >> /etc/ecs/ecs.config
+            "02_start_ecs_agent":
+              command: start ecs
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub "[main]\nstack=${AWS::StackId}\nregion=${AWS::Region}\n"
+              group: root
+              mode: 256
+              owner: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub "[cfn-auto-reloader-hook]\ntriggers=post.update\npath=Resources.DatabaseEC2LaunchConfiguration.Metadata.AWS::CloudFormation::Init\naction=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2LaunchConfiguration\n"
+          packages:
+            yum:
+              aws-cli: []
+              ecs-init: []
+              jq: []
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+    Properties:
+      AssociatePublicIpAddress: true
+      IamInstanceProfile: !Ref DatabaseEC2InstanceProfile
+      ImageId: !Ref EC2HostAMI
+      InstanceType: !Ref EC2HostInstanceType
+      KeyName: !Ref EC2KeyPair
+      SecurityGroups:
+        - Ref: DatabaseEC2SecurityGroup
+      UserData: !Base64
+        "Fn::Sub": "#!/bin/bash\nyum install -y aws-cfn-bootstrap\n/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2LaunchConfiguration\n/opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource DatabaseEC2AutoScalingGroup\n\nexec 2>>/var/log/ecs/ecs-agent-install.log\nset -x\nuntil curl -s http://localhost:51678/v1/metadata\ndo\n   sleep 1\ndone\ndocker plugin install rexray/ebs REXRAY_PREEMPT=true EBS_REGION=us-east-1 --grant-all-permissions\nstop ecs \nstart ecs\n"
+
+  DatabaseEC2SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - CidrIp: !Ref SSHLocation
+          FromPort: "22"
+          IpProtocol: tcp
+          ToPort: "22"
+        - CidrIp: !Ref SSHLocation
+          FromPort: "5432"
+          IpProtocol: tcp
+          ToPort: "5432"
+      VpcId: !ImportValue
+        Ref: VPCReference
+
+  DatabaseECSCluster:
+    Type: "AWS::ECS::Cluster"
+    Properties:
+      ClusterName: !Sub ${ECSClusterName}
+
+  DatabaseECSService:
+    Type: "AWS::ECS::Service"
+    DependsOn:
+      - DatabaseNLBListener
+    Description: TODO ATTENTION
+    Properties:
+      Cluster: !Ref DatabaseECSCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: !Sub "${AWS::StackName}-customdb"
+          ContainerPort: 5432
+          TargetGroupArn: !Ref DatabaseNLBTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Ref: DatabaseEC2SecurityGroup
+          Subnets:
+            - "Fn::ImportValue": !Ref PublicSubnetAReference
+      ServiceName: !Sub "${AWS::StackName}-service"
+      TaskDefinition: !Ref DatabaseECSTaskDefinition
+
+  DatabaseECSTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Description: TODO ATTENTION
+    Properties:
+      ContainerDefinitions:
+        - Name: !Sub "${AWS::StackName}-customdb"
+          Environment:
+            - Name: POSTGRES_PASSWORD
+              Value: !Ref EnvVarPostgresPassword
+            - Name: POSTGRES_USER
+              Value: !Ref EnvVarPostgresUser
+            - Name: POSTGRES_DB
+              Value: !Ref EnvVarPostgresDatabase
+            - Name: PGUSER
+              Value: !Ref EnvVarPostgresUser
+            - Name: PGPASSWORD
+              Value: !Ref EnvVarPostgresPassword
+            - Name: PGDATABASE
+              Value: !Ref EnvVarPostgresDatabase
+          Essential: true
+          Image: !Sub "${DatabaseDockerHubImageName}:${DatabaseDockerHubImageTag}"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref DatabaseLogGroup
+              awslogs-region: !Sub "${AWS::Region}"
+              awslogs-stream-prefix: ecs
+          MountPoints:
+            - ContainerPath: /var/lib/postgresql/data
+              SourceVolume: postgresasapp-persist-ebs
+          PortMappings:
+            - ContainerPort: 5432
+              Protocol: tcp
+      Cpu: "512"
+      Family: !Sub "${AWS::StackName}-family"
+      Memory: "512"
+      NetworkMode: awsvpc
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: "attribute:ecs.availability-zone==us-east-1a"
+      RequiresCompatibilities:
+        - EC2
+      Volumes:
+        - Name: postgresasapp-persist-ebs
+          DockerVolumeConfiguration:
+            Autoprovision: false
+            Driver: rexray/ebs
+            DriverOpts:
+              size: "5"
+              volumetype: gp2
+            Scope: shared
+
+  DatabaseLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/${AWS::StackName}/ecs/customdb"
+      RetentionInDays: 7
+
+  DatabaseNLB:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Description: Network load balancer.
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - "Fn::ImportValue": !Ref PublicSubnetAReference
+        - "Fn::ImportValue": !Ref PublicSubnetBReference
+      Type: network
+
+  DatabaseNLBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DatabaseNLBTargetGroup
+      LoadBalancerArn: !Ref DatabaseNLB
+      Port: 5432
+      Protocol: TCP
+
+  DatabaseNLBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Description: Target group for network load balancer.
+    Properties:
+      Port: 5432
+      Protocol: TCP
+      TargetType: ip
+      VpcId: !ImportValue
+        Ref: VPCReference
+
+Outputs:
+  PostgresConnectionString:
+    Description: "'psql' connection string for custom database"
+    Value: !Join
+      - ""
+      - - "postgresql://"
+        - Ref: EnvVarPostgresUser
+        - ":"
+        - Ref: EnvVarPostgresPassword
+        - "@"
+        - "Fn::GetAtt":
+            - DatabaseNLB
+            - DNSName
+        - ":"
+        - "5432"
+        - /
+        - Ref: EnvVarPostgresDatabase
+    Export:
+      Name: !Sub "${AWS::StackName}-customdb-psql-conn"
