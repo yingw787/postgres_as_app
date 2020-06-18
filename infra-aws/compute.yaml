@@ -451,9 +451,9 @@ Resources:
           PortMappings:
             - ContainerPort: 5432
               Protocol: tcp
-      Cpu: "4096"
+      Cpu: "1024"
       Family: !Sub "${AWS::StackName}-family-customdb"
-      Memory: "4096"
+      Memory: "1024"
       NetworkMode: awsvpc
       PlacementConstraints:
         - Type: memberOf
@@ -479,6 +479,7 @@ Resources:
     Type: "AWS::ECS::TaskDefinition"
     Description: ECS task definition for PostgREST webapp.
     Properties:
+      ContainerDefinitions:
         - Name: !Sub "${AWS::StackName}-postgrest"
           Essential: true
           Image: !Sub "${ApplicationDockerHubImageName}:${ApplicationDockerHubImageTag}"
@@ -511,9 +512,9 @@ Resources:
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
-      Cpu: "4096"
+      Cpu: "1024"
       Family: !Sub "${AWS::StackName}-family-postgrest"
-      Memory: "4096"
+      Memory: "1024"
       NetworkMode: awsvpc
       PlacementConstraints:
         - Type: memberOf
