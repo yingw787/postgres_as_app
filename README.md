@@ -372,7 +372,13 @@ for more details.
     make wait-rds
     ```
 
-### Custom DB Persist
+7.  To connect to the RDS instance via `psql`, run:
+
+    ```bash
+    make rds-psql
+    ```
+
+### Custom DB persist
 
 1.  To create the custom database persist layer, run:
 
@@ -397,4 +403,67 @@ for more details.
 
     ```bash
     $ make wait-persist
+    ```
+
+### Custom DB / PostgREST compute
+
+1.  Login to the [AWS EC2 console](https://console.aws.amazon.com/ec2) for your
+    specific region.
+
+2.  Under 'Network & Security', select 'Key Pairs' to see the 'Key Pair' window.
+    In the top-right corner, click on the orange button "Create key pair". This
+    should open a new window.
+
+3.  Give a name to your keypair, like `admin`. Select `.pem` for your file
+    format, then click "Create key pair" in the bottom-right corner of the form.
+
+4.  Download your keypair `.pem` file to your local computer, and save it as
+    `/path/to/file.pem`.
+
+5.  Copy the file `${BASDIR}/infra-aws/compute.sample.json` to
+    `${BASEDIR}/infra-aws/compute.json`, containing the following:
+
+    ```json
+    [
+        {
+            "ParameterKey": "EC2KeyPair",
+            "ParameterValue": "$YOUR_EC2_KEYPAIR"
+        }
+    ]
+    ```
+
+6.  Replace `$YOUR_EC2_KEYPAIR` in `${BASEDIR}/infra-aws/compute.json` with your
+    EC2 keypair. This will allow you to SSH into the EC2 instance, which grants
+    you access to the ECS Docker container runtimes, by running `ssh -i
+    /path/to/file.pem ec2-user@$YOUR_EC2_IPV4_ADDRESS`.
+
+7.  To create the custom database / app compute node, run:
+
+    ```bash
+    $ make create-compute
+    ```
+
+8.  To deploy changes to the custom database / app compute node, run:
+
+    ```bash
+    $ make deploy-compute
+    ```
+
+9.  To tear down the custom database / app compute node, run:
+
+    ```bash
+    $ make terminate-compute
+    ```
+
+10. To wait until the custom database / app compute node has been successfully
+    created, run:
+
+    ```bash
+    $ make wait-compute
+    ```
+
+11. To connect to the custom database instance using `psql`, run:
+
+    ```bash
+    make compute-psql
     ```
