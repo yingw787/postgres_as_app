@@ -1,17 +1,27 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "Compute layer definition for the custom database and PostgREST application."
+Description: Compute layer definition for the custom database and PostgREST application.
 
 Parameters:
-  DatabaseDockerHubImageTag:
+  ApplicationDockerHubImageName:
+    Type: String
+    Default: yingw7871/postgresasapp-postgrest
+    Description: Docker Hub image name for the PostgREST webapp Docker image.
+
+  ApplicationDockerHubImageTag:
     Type: String
     Default: latest
-    Description: Docker Hub image tag for the Postgres custom database Docker image.
+    Description: Docker Hub image tag for the PostgREST webapp Docker image.
 
   DatabaseDockerHubImageName:
     Type: String
     Default: yingw7871/postgresasapp-customdb
     Description: Docker Hub image name for the Postgres custom database Docker image.
+
+  DatabaseDockerHubImageTag:
+    Type: String
+    Default: latest
+    Description: Docker Hub image tag for the Postgres custom database Docker image.
 
   EC2DesiredCapacity:
     Type: Number
@@ -49,18 +59,18 @@ Parameters:
 
   EnvVarPostgresDatabase:
     Type: String
-    Default: "mydb"
+    Default: mydb
     Description: "Environment variable 'POSTGRES_DB'."
 
   EnvVarPostgresPassword:
     Type: String
-    Default: "mypassword"
+    Default: mypassword
     Description: "Environment variable 'POSTGRES_PASSWORD'."
     NoEcho: true
 
   EnvVarPostgresUser:
     Type: String
-    Default: "myuser"
+    Default: myuser
     Description: "Environment variable 'POSTGRES_USER'."
 
   PublicSubnetAReference:
@@ -274,18 +284,18 @@ Resources:
       VpcId: !ImportValue
         Ref: VPCReference
 
-  DatabaseECSCluster:
+  ECSCluster:
     Type: "AWS::ECS::Cluster"
     Properties:
       ClusterName: !Sub ${ECSClusterName}
 
-  DatabaseECSService:
+  ECSService:
     Type: "AWS::ECS::Service"
     DependsOn:
       - DatabaseNLBListener
     Description: TODO ATTENTION
     Properties:
-      Cluster: !Ref DatabaseECSCluster
+      Cluster: !Ref ECSCluster
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
