@@ -1,0 +1,6 @@
+[
+    {
+        "ParameterKey": "EC2KeyPair",
+        "ParameterValue": "$YOUR_EC2_KEYPAIR"
+    }
+]
