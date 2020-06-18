@@ -86,7 +86,7 @@ Assuming that all commands are run from `${BASEDIR}/services/`.
     make up
     ```
 
-2.  In your origin database, create a table:
+2.  In your origin database  (`make origindb-psql`), create a table:
 
     ```sql
     somedb=# CREATE TABLE todos (col1 VARCHAR(256), col2 VARCHAR(256));
@@ -96,30 +96,33 @@ Assuming that all commands are run from `${BASEDIR}/services/`.
     somedb=#
     ```
 
-3.  In your custom database, create a `postgres_fdw` extension:
+3.  In your custom database (`make customdb-psql`), create a `postgres_fdw`
+    extension:
 
     ```sql
     mydb=# CREATE EXTENSION postgres_fdw;
     CREATE EXTENSION
     ```
 
-4.  In your custom database, create a server referencing your origin database:
+4.  In your custom database (`make customdb-psql`), create a server referencing
+    your origin database:
 
     ```sql
     mydb=# CREATE SERVER origindb FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'origindb', port '5432', dbname 'somedb');
     CREATE SERVER
     ```
 
-5.  In your custom database, create a user mapping to map permissions between
-    your user on the custom database and a user on the origin database:
+5.  In your custom database (`make customdb-psql`), create a user mapping to map
+    permissions between your user on the custom database and a user on the
+    origin database:
 
     ```sql
     mydb=# CREATE USER MAPPING FOR myuser SERVER origindb OPTIONS (user 'someuser', password 'somepassword');
     CREATE USER MAPPING
     ```
 
-6.  In your custom database, create a foreign table referencing the table in the
-    origin database:
+6.  In your custom database (`make customdb-psql`), create a foreign table
+    referencing the table in the origin database:
 
     ```sql
     mydb=# CREATE FOREIGN TABLE todos (col1 VARCHAR(256), col2 VARCHAR(256)) SERVER origindb OPTIONS (schema_
@@ -149,6 +152,20 @@ Assuming that all commands are run from `${BASEDIR}/services/`.
 
     ```bash
     make down
+    ```
+
+9.  (OPTIONAL) To publish the custom database Dockerfile to Docker Hub, run:
+
+    ```bash
+    make publish-customdb
+    ```
+
+    Take care to change `$(DOCKER_HUB_USERNAME)` to your Docker Hub username.
+
+10. (OPTIONAL) To publish the PostgREST Dockerfile to Docker Hub, run:
+
+    ```bash
+    make publish-postgrest
     ```
 
 ## AWS Setup
