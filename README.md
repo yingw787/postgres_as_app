@@ -68,15 +68,10 @@ post for a higher-level discussion on system design.
 
     ```bash
     $ git clone https://github.com/yingw787/postgres_as_app
+    $ cd postgres_as_app
     ```
 
-    If unzipping from releases, `unzip` this repository:
-
-    ```bash
-    $ unzip postgres_as_app.zip
-    ```
-
-## Local Setup
+## Local Setup / Modeling
 
 Assuming that all commands are run from `${BASEDIR}/services/`.
 
@@ -484,3 +479,84 @@ for more details.
     ```bash
     make compute-psql
     ```
+
+## AWS Modeling
+
+Assuming that all commands are run from `${BASEDIR}/infra-aws/`.
+
+1.  In your RDS console (`make rds-psql`), create a table, and insert some data
+    into it.
+
+    ```bash
+    $ make rds-psql
+    psql (12.3 (Ubuntu 12.3-1.pgdg20.04+1), server 11.6)
+    SSL connection (protocol: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384, bits: 256, compression: off)
+    Type "help" for help.
+
+    pgdb=> CREATE TABLE test (col1 VARCHAR(256), col2 VARCHAR(256));
+    CREATE TABLE
+    pgdb=> INSERT INTO test (col1, col2) VALUES ('cat', 'dog');
+    INSERT 0 1
+    pgdb=>
+    ```
+
+2.  In your custom database (`make compute-psql`), create a `postgres_fdw`
+    extension:
+
+    ```sql
+    $ make compute-psql
+    psql (12.3 (Ubuntu 12.3-1.pgdg20.04+1))
+    Type "help" for help.
+
+    mydb=# CREATE EXTENSION postgres_fdw;
+    CREATE EXTENSION
+    ```
+
+3.  In your custom database (`make compute-psql`), create a server referencing
+    your RDS instance:
+
+    ```sql
+    mydb=# CREATE SERVER origindb FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host '$YOUR_RDS_HOST', port '5432', dbname '$YOUR_RDS_DB');
+    CREATE SERVER
+    ```
+
+    Where `$YOUR_RDS_HOST` is the endpoint for your specific RDS service
+    (findable via the [RDS console](https://console.aws.amazon.com/rds)), and
+    `$YOUR_RDS_DB` is the parameter `PostgresDBName` invoked in `rds.yaml`.
+
+4.  In your custom database (`make compute-psql`), create a user mapping to map
+    permissions between your user on the custom database and the user on the
+    origin database:
+
+    ```sql
+    mydb=# CREATE USER MAPPING FOR `$CUSTOMDB_USERNAME` SERVER origindb OPTIONS (user `$RDS_USERNAME`, password `$RDS_PASSWORD`);
+    CREATE USER MAPPING
+    ```
+
+    Where `$CUSTOMDB_USERNAME` is parameter `EnvVarPostgresUser` defined in
+    `compute.yaml`, `$RDS_USERNAME` is parameter `DatabaseUsername` defined in
+    `rds.yaml`, and `$RDS_PASSWORD` is parameter `DatabasePassword` defined in
+    `rds.yaml`.
+
+5.  In your custom database (`make compute-psql`), create a foreign table
+    referencing the table in the origin database:
+
+    ```sql
+    mydb=# CREATE FOREIGN TABLE test (col1 VARCHAR(256), col2 VARCHAR(256)) SERVER origindb OPTIONS (schema_name 'public', table_name 'test');
+    CREATE FOREIGN TABLE
+    ```
+
+    You should know be able to see the foreign table fetched correctly as part
+    of the custom database:
+
+    ```sql
+    mydb=# SELECT * FROM test;
+    col1 | col2
+    ------+------
+    cat  | dog
+    (1 row)
+
+    mydb=#
+    ```
+
+## Heroku Setup
