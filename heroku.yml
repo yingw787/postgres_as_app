@@ -3,4 +3,4 @@ build:
     web: services/postgrest.Dockerfile
 
 run:
-  web: /usr/local/bin/postgrest /usr/local/postgrest.conf
+  web: ./env-to-config /usr/local/bin/postgrest /usr/local/postgrest.conf
