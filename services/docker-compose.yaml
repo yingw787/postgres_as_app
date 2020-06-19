@@ -35,9 +35,9 @@ services:
       context: ./
       dockerfile: postgrest.Dockerfile
     environment:
-      - PGRST_DB_URI=postgres://myuser:mypassword@customdb:5432/mydb
-      - PGRST_DB_SCHEMA=public
-      - PGRST_DB_ANON_ROLE=myuser
+      - DB_URI=postgres://myuser:mypassword@customdb:5432/mydb
+      - DB_SCHEMA=public
+      - DB_ANON_ROLE=myuser
     networks:
       postgresasapp:
     ports:
