@@ -1,17 +1,30 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "Launch everything except IAM users for one-click deployment. NOTE that running this step assumes longstanding, hardcoded resources!"
+Description: "Launch everything except IAM users for one-click deployment."
 
 Parameters:
   InternalS3BucketURI:
     Type: String
     Default: bytes-by-ying-postgres-as-app
 
+  RDSMasterUsername:
+    Type: String
+    Default: root
+
+  RDSMasterPassword:
+    Type: String
+    Default: root1234
+
 Resources:
   VPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub "https://${InternalS3BucketURI}.s3.amazonaws.com/vpc.yaml"
+      TemplateURL: !Sub "https://s3.amazonaws.com/${InternalS3BucketURI}/vpc.template"
 
-# Outputs:
-#   OriginDBConn:
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${InternalS3BucketURI}/rds.template"
+      Parameters:
+        DatabaseUsername: !Ref RDSMasterUsername
+        DatabasePassword: !Ref RDSMasterPassword
