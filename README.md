@@ -559,4 +559,87 @@ Assuming that all commands are run from `${BASEDIR}/infra-aws/`.
     mydb=#
     ```
 
-## Heroku Setup
+## PostgREST on Heroku
+
+Setup of the PostgREST instance is on Heroku, instead of AWS. You can probably
+set this up on AWS ECS as well, but attempting to do so surpassed my resource
+and time constraints for now, due to issues with inter-container networking and
+service discovery.
+
+Also, since PostgREST simply does the lifting of SQL into HTTP and does not
+contain any data, it's less important where it's located since there's no
+lock-in whatsoever. You can continue to use your local system, or use one of
+infinitely many deployment platforms (Render, Netlify, Elastic Beanstalk, etc.)
+for this step.
+
+### Additional System Requirements
+
+1.  Create a Heroku account. You can do so on [this Heroku
+    page](https://signup.heroku.com/).
+
+2.  Download the Heroku CLI. On Ubuntu, this might look like:
+
+    ```bash
+    sudo snap install --classic heroku
+    ```
+
+### Heroku Setup
+
+1.  Create an app, with the [`postgrest-heroku`] buildpack.
+
+    ```bash
+    heroku apps:create --buildpack https://github.com/PostgREST/postgrest-heroku.git
+    ```
+
+    If you created an app already, switch to the new app by running:
+
+    ```bash
+    heroku git:remote -a $YOUR_NEW_HEROKU_APP
+    ```
+
+2.  Set configuration variables. It's very important to specify the config
+    variable `POSTGREST_VER=0.5.0.0`, as it's hardcoded into the Heroku
+    buildpack.
+
+    ```bash
+    heroku config:set POSTGREST_VER=0.5.0.0
+    heroku config:set DB_URI=$YOUR_CUSTOMDB_URI
+    heroku config:set DB_SCHEMA=$YOUR_CUSTOMDB_SCHEMA
+    heroku config:set DB_ANON_ROLE=$YOUR_CUSTOMDB_ANON_ROLE
+    ```
+
+    You can find `$YOUR_CUSTOMDB_URI` by running the following command in your
+    terminal, which should match parameter `$ECS_PSQL_CONN_URI` defined in
+    `infra-aws/Makefile`:
+
+    ```bash
+    aws cloudformation describe-stacks --stack-name postgresasapp-compute --query "Stacks[0].Outputs[?OutputKey=='PostgresConnectionString'].OutputValue" --output text
+    ```
+
+    `$YOUR_CUSTOMDB_SCHEMA` should be `public`.
+
+    `$YOUR_CUSTOMDB_ANON_ROLE` should be parameter `EnvVarPostgresUser` in
+    `compute.yaml`.
+
+3.  Push the Heroku app to master:
+
+    ```bash
+    git push heroku master
+    ```
+
+4.  Open the app:
+
+    ```bash
+    heroku open
+    ```
+
+5. Go to `/test` in order to see your table. It should print out:
+
+    ```json
+    [
+        {
+            "col1": "cat",
+            "col2": "dog"
+        }
+    ]
+    ```
