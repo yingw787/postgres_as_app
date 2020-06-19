@@ -1,0 +1,8 @@
+# TODO: Translate logic to AWS ECS, if necessary.
+
+build:
+  docker:
+    postgrest: postgrest.Dockerfile
+
+run:
+  postgrest: /usr/local/bin/postgrest /usr/local/postgrest.conf
