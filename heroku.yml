@@ -1,6 +1,6 @@
 build:
   docker:
-    postgrest: services/postgrest.Dockerfile
+    web: services/postgrest.Dockerfile
 
 run:
-  postgrest: /usr/local/bin/postgrest /usr/local/postgrest.conf
+  web: /usr/local/bin/postgrest /usr/local/postgrest.conf
