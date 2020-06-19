@@ -97,5 +97,4 @@ _create-s3:
 
 export INTERNAL_S3_BUCKET_URI ?= bytes-by-ying-postgres-as-app
 _upload-content:
-	aws s3 rm s3://$(INTERNAL_S3_BUCKET_URI) --recursive
 	aws s3 sync . s3://$(INTERNAL_S3_BUCKET_URI)
