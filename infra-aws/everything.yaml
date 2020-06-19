@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Launch everything except IAM users for one-click deployment. NOTE that running this step assumes longstanding, hardcoded resources!"
+
+Parameters:
+  InternalS3BucketURI:
+    Type: String
+    Default: bytes-by-ying-postgres-as-app
+
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${InternalS3BucketURI}.s3.amazonaws.com/vpc.yaml"
+
+# Outputs:
+#   OriginDBConn:
