@@ -9,11 +9,31 @@ Parameters:
 
   RDSMasterUsername:
     Type: String
-    Default: root
+    Default: someuser
 
   RDSMasterPassword:
     Type: String
-    Default: root1234
+    Default: somepassword
+
+  RDSMasterDatabase:
+    Type: String
+    Default: somedb
+
+  EC2KeyPair:
+    Type: String
+    Default: admin
+
+  CustomDatabaseUsername:
+    Type: String
+    Default: myuser
+
+  CustomDatabasePassword:
+    Type: String
+    Default: mypassword
+
+  CustomDatabaseDatabase:
+    Type: String
+    Default: mydb
 
 Resources:
   VPCStack:
@@ -23,8 +43,31 @@ Resources:
 
   RDSStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
     Properties:
       TemplateURL: !Sub "https://s3.amazonaws.com/${InternalS3BucketURI}/rds.template"
       Parameters:
         DatabaseUsername: !Ref RDSMasterUsername
         DatabasePassword: !Ref RDSMasterPassword
+        PostgresDBName: !Ref RDSMasterDatabase
+
+  CustomDatabasePersistStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${InternalS3BucketURI}/persist.template"
+
+  CustomDatabaseComputeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - CustomDatabasePersistStack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${InternalS3BucketURI}/compute.template"
+      Parameters:
+        EC2KeyPair: !Ref EC2KeyPair
+        EnvVarPostgresUser: !Ref CustomDatabaseUsername
+        EnvVarPostgresPassword: !Ref CustomDatabasePassword
+        EnvVarPostgresDatabase: !Ref CustomDatabaseDatabase
