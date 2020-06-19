@@ -85,3 +85,17 @@ compute-psql:
 compute-http: POSTGREST_URL=$(shell aws cloudformation describe-stacks --stack-name postgresasapp-compute --query "Stacks[0].Outputs[?OutputKey=='PostgRESTURL'].OutputValue" --output text)
 compute-http:
 	xdg-open http://$(POSTGREST_URL)
+
+
+
+
+
+# For internal use only. No need to run these as part of the demonstration, as
+# they are for managing CloudFormation templates for one-click deploys.
+_create-s3:
+	aws cloudformation create-stack --stack-name do-not-delete-postgresasapp-s3 --template-body file://_internals3.yaml --capabilities CAPABILITY_NAMED_IAM
+
+export INTERNAL_S3_BUCKET_URI ?= bytes-by-ying-postgres-as-app
+_upload-content:
+	aws s3 rm s3://$(INTERNAL_S3_BUCKET_URI) --recursive
+	aws s3 sync . s3://$(INTERNAL_S3_BUCKET_URI)
