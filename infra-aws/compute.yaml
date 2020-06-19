@@ -1,18 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Compute layer definition for the custom database and PostgREST application.
+Description: Compute layer definition for the custom database.
 
 Parameters:
-  ApplicationDockerHubImageName:
-    Type: String
-    Default: yingw7871/postgresasapp-postgrest
-    Description: Docker Hub image name for the PostgREST webapp Docker image.
-
-  ApplicationDockerHubImageTag:
-    Type: String
-    Default: latest
-    Description: Docker Hub image tag for the PostgREST webapp Docker image.
-
   DatabaseDockerHubImageName:
     Type: String
     Default: yingw7871/postgresasapp-customdb
@@ -98,116 +88,6 @@ Parameters:
     Description: "Reference to VPC deployed as part of stack `vpc.yaml`."
 
 Resources:
-  ApplicationECSService:
-    Type: "AWS::ECS::Service"
-    DependsOn:
-      - ApplicationNLBListener
-    Description: ECS service definition for PostgREST webapp.
-    Properties:
-      Cluster: !Ref ECSCluster
-      DeploymentConfiguration:
-        MaximumPercent: 200
-        MinimumHealthyPercent: 100
-      DesiredCount: 1
-      HealthCheckGracePeriodSeconds: 60
-      LaunchType: EC2
-      LoadBalancers:
-        - ContainerName: !Sub "${AWS::StackName}-postgrest"
-          ContainerPort: 3000
-          TargetGroupArn: !Ref ApplicationNLBTargetGroup
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          AssignPublicIp: DISABLED
-          SecurityGroups:
-            - Ref: EC2SecurityGroup
-          Subnets:
-            - "Fn::ImportValue": !Ref PublicSubnetAReference
-      ServiceName: !Sub "${AWS::StackName}-service-postgrest"
-      TaskDefinition: !Ref ApplicationECSTaskDefinition
-
-  ApplicationECSTaskDefinition:
-    Type: "AWS::ECS::TaskDefinition"
-    Description: ECS task definition for PostgREST webapp.
-    Properties:
-      ContainerDefinitions:
-        - Name: !Sub "${AWS::StackName}-postgrest"
-          Environment:
-            - Name: PGRST_DB_URI
-              Value: !Join
-                - ""
-                - - "postgres://"
-                  - Ref: EnvVarPostgresUser
-                  - ":"
-                  - Ref: EnvVarPostgresPassword
-                  - "@"
-                  - "Fn::GetAtt":
-                      - DatabaseNLB
-                      - DNSName
-                  - ":"
-                  - "5432"
-                  - /
-                  - Ref: EnvVarPostgresDatabase
-            - Name: PGRST_DB_SCHEMA
-              Value: public
-            - Name: PGRST_DB_ANON_ROLE
-              Value: !Ref EnvVarPostgresUser
-          Essential: true
-          Image: !Sub "${ApplicationDockerHubImageName}:${ApplicationDockerHubImageTag}"
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref ApplicationLogGroup
-              awslogs-region: !Sub "${AWS::Region}"
-              awslogs-stream-prefix: ecs
-          PortMappings:
-            - ContainerPort: 3000
-              Protocol: tcp
-      Cpu: "1024"
-      Family: !Sub "${AWS::StackName}-family-postgrest"
-      Memory: "1024"
-      NetworkMode: awsvpc
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: "attribute:ecs.availability-zone==us-east-1a"
-      RequiresCompatibilities:
-        - EC2
-
-  ApplicationLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "/${AWS::StackName}/ecs/postgrest"
-      RetentionInDays: 7
-
-  ApplicationNLB:
-    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
-    Description: Network load balancer for PostgREST.
-    Properties:
-      Scheme: internet-facing
-      Subnets:
-        - "Fn::ImportValue": !Ref PublicSubnetAReference
-        - "Fn::ImportValue": !Ref PublicSubnetBReference
-      Type: network
-
-  ApplicationNLBListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ApplicationNLBTargetGroup
-      LoadBalancerArn: !Ref ApplicationNLB
-      Port: 3000
-      Protocol: TCP
-
-  ApplicationNLBTargetGroup:
-    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
-    Description: Target group for network load balancer for application.
-    Properties:
-      Port: 3000
-      Protocol: TCP
-      TargetType: ip
-      VpcId: !ImportValue
-        Ref: VPCReference
-
   DatabaseECSService:
     Type: "AWS::ECS::Service"
     DependsOn:
@@ -268,9 +148,9 @@ Resources:
           PortMappings:
             - ContainerPort: 5432
               Protocol: tcp
-      Cpu: "1024"
+      Cpu: "2048"
       Family: !Sub "${AWS::StackName}-family-customdb"
-      Memory: "1024"
+      Memory: "2048"
       NetworkMode: awsvpc
       PlacementConstraints:
         - Type: memberOf
@@ -515,10 +395,6 @@ Resources:
       ClusterName: !Sub ${ECSClusterName}
 
 Outputs:
-  PostgRESTURL:
-    Description: URL for PostgREST application.
-    Value: !GetAtt ApplicationNLB.DNSName
-
   PostgresConnectionString:
     Description: "'psql' connection string for custom database"
     Value: !Join
