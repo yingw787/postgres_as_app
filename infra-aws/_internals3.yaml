@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "S3 bucket holding CloudFormation templates for one-click deploys."
+
+Parameters:
+  S3BucketURI:
+    Type: String
+    Default: bytes-by-ying-postgres-as-app
+    Description: S3 bucket URI
+
+Resources:
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3BucketRoot
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub ${S3BucketRoot.Arn}/*
+
+  S3BucketRoot:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Delete
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref S3BucketURI
+      WebsiteConfiguration:
+        ErrorDocument: index.html
+        IndexDocument: index.html
